@@ -1,23 +1,73 @@
 import { z } from 'zod';
 
+const optionalText = z.preprocess(
+  (value) => (value === null || value === undefined || value === '' ? undefined : String(value).trim()),
+  z.string().optional()
+);
+
+const requiredText = (message: string) => z.preprocess(
+  (value) => (value === null || value === undefined ? '' : String(value).trim()),
+  z.string().min(1, message)
+);
+
+const optionalAge = z.preprocess(
+  (value) => (value === null || value === undefined || value === '' ? undefined : value),
+  z.coerce.number().int().min(0).max(120).optional()
+);
+
 export const loginSchema = z.object({
   username: z.string().min(2),
   password: z.string().min(6)
 });
 
 export const patientSchema = z.object({
-  fullName: z.string().min(2, 'Patient name is required'),
-  dob: z.string().optional().nullable(),
-  ageYears: z.coerce.number().int().min(0).max(120).optional().nullable(),
+  fullName: requiredText('Patient name is required').pipe(z.string().min(2, 'Patient name is required')),
+  dob: optionalText,
+  ageYears: optionalAge,
   gender: z.string().default('female'),
-  mobile: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  aadhaar: z.string().optional().nullable(),
-  abhaNumber: z.string().optional().nullable(),
+  mobile: z.preprocess(
+    (value) => String(value ?? '').replace(/\D/g, ''),
+    z.string().regex(/^\d{10}$/, 'Mobile number must be 10 digits')
+  ),
+  address: optionalText,
+  aadhaar: optionalText,
+  abhaNumber: optionalText,
   consent: z.coerce.boolean().default(false)
-}).refine((data) => Boolean(data.aadhaar || data.abhaNumber || (data.mobile && (data.dob || data.ageYears))), {
-  message: 'Add Aadhaar, ABHA, or mobile with DOB/age for safe dedupe.',
-  path: ['aadhaar']
+}).superRefine((data, ctx) => {
+  const aadhaarDigits = data.aadhaar?.replace(/\D/g, '') || '';
+  const abhaDigits = data.abhaNumber?.replace(/\D/g, '') || '';
+
+  if (!data.dob && data.ageYears === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Date of birth or age is required',
+      path: ['dob']
+    });
+  }
+
+  if (!aadhaarDigits && !abhaDigits) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Aadhaar or ABHA is required',
+      path: ['aadhaar']
+    });
+  }
+
+  if (aadhaarDigits && aadhaarDigits.length !== 12) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Aadhaar number must be 12 digits',
+      path: ['aadhaar']
+    });
+  }
+
+  if (abhaDigits && abhaDigits.length !== 14) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'ABHA number must be 14 digits',
+      path: ['abhaNumber']
+    });
+  }
 });
 
 export const sampleSchema = z.object({

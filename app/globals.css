@@ -130,6 +130,7 @@ button { cursor: pointer; }
 .form { display: grid; gap: 14px; }
 .field { display: grid; gap: 6px; }
 .field label { color: #344054; font-size: 13px; font-weight: 750; }
+.required-mark { color: var(--red); font-weight: 900; }
 .input, .select, .textarea {
   width: 100%;
   border: 1px solid var(--line);
