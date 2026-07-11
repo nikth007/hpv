@@ -141,6 +141,44 @@ export default function RegisterPage() {
           <form className="form" onSubmit={submit}>
             <div className="grid two">
               <div className="field">
+                <label>Aadhaar number</label>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  maxLength={12}
+                  value={form.aadhaar || ''}
+                  onChange={(e) => set('aadhaar', e.target.value)}
+                  placeholder="12 digits"
+                />
+              </div>
+              <div className="field">
+                <label>ABHA number</label>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  value={form.abhaNumber || ''}
+                  onChange={(e) => set('abhaNumber', e.target.value)}
+                  placeholder="14 digits"
+                />
+              </div>
+              <div className="field">
+                <label>Mobile number</label>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={form.mobile || ''}
+                  onChange={(e) => set('mobile', e.target.value)}
+                  placeholder="10 digits"
+                />
+              </div>
+              <div className="field">
+                <label>Date of birth</label>
+                <input className="input" type="date" value={form.dob || ''} onChange={(e) => set('dob', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid two">
+              <div className="field">
                 <label>Patient name</label>
                 <input className="input" value={form.fullName || ''} onChange={(e) => set('fullName', e.target.value)} />
               </div>
