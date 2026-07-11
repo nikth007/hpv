@@ -26,16 +26,27 @@ function referralSelect() {
   `;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await requireUser();
     if (isDemoMode) return NextResponse.json({ referrals: listReferrals(user) });
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status') || undefined;
+    const q = url.searchParams.get('q') || undefined;
 
     const params: any[] = [];
     let where = 'WHERE TRUE';
     if (user.role === 'spoke') {
       params.push(user.centerId);
       where += ` AND p.center_id = $${params.length}`;
+    }
+    if (status) {
+      params.push(status);
+      where += ` AND r.follow_up_status = $${params.length}`;
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      where += ` AND (p.full_name ILIKE $${params.length} OR s.sample_id ILIKE $${params.length})`;
     }
 
     const referrals = await query<any>(

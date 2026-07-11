@@ -13,12 +13,17 @@ export default function BatchesPage() {
   const [batches, setBatches] = useState<any[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [courierName, setCourierName] = useState('');
+  const [q, setQ] = useState('');
+  const [todayOnly, setTodayOnly] = useState(true);
   const [message, setMessage] = useState<any>(null);
   const [activeBatch, setActiveBatch] = useState<any>(null);
 
   async function load() {
+    const sampleParams = new URLSearchParams({ status: 'COLLECTED' });
+    if (q) sampleParams.set('q', q);
+    if (todayOnly) sampleParams.set('today', 'true');
     const [sampleRes, batchRes] = await Promise.all([
-      fetch('/api/samples').then((r) => r.json()),
+      fetch(`/api/samples?${sampleParams.toString()}`).then((r) => r.json()),
       fetch('/api/batches').then((r) => r.json())
     ]);
     setSamples(sampleRes.samples || []);
@@ -35,6 +40,10 @@ export default function BatchesPage() {
 
   function selectAll() {
     setSelected(eligible.map((sample) => sample.id));
+  }
+
+  function clearSelected() {
+    setSelected([]);
   }
 
   async function createBatch() {
@@ -63,16 +72,33 @@ export default function BatchesPage() {
       <div className="grid two no-print">
         <div className="card">
           <h2>Collected samples</h2>
+          <div className="grid two">
+            <div className="field">
+              <label>Find sample / patient</label>
+              <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Barcode, patient, mobile" />
+            </div>
+            <div className="field">
+              <label>View</label>
+              <label className="mini" style={{ paddingTop: 12 }}>
+                <input type="checkbox" checked={todayOnly} onChange={(e) => setTodayOnly(e.target.checked)} /> Today only
+              </label>
+            </div>
+          </div>
           <div className="field">
             <label>Courier / handover person</label>
             <input className="input" value={courierName} onChange={(e) => setCourierName(e.target.value)} />
           </div>
           <div className="actions" style={{ margin: '14px 0' }}>
+            <button className="btn secondary" onClick={load}>Apply filters</button>
             <button className="btn secondary" onClick={selectAll} disabled={!eligible.length}>Select all ({eligible.length})</button>
+            <button className="btn secondary" onClick={clearSelected} disabled={!selected.length}>Clear</button>
             <button className="btn" disabled={!selected.length} onClick={createBatch}>
               <ClipboardList size={18} aria-hidden="true" />
               Dispatch selected ({selected.length})
             </button>
+          </div>
+          <div className="toast" style={{ marginBottom: 12 }}>
+            Ready: {eligible.length} / Selected: {selected.length} / Remaining: {Math.max(eligible.length - selected.length, 0)}
           </div>
           <div className="table-wrap">
             <table className="table">

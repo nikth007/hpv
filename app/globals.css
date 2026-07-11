@@ -232,6 +232,11 @@ button { cursor: pointer; }
   gap: 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+.label-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
 .barcode {
   min-height: 72px;
   display: grid;
@@ -264,4 +269,5 @@ button { cursor: pointer; }
   .card { border: 0; box-shadow: none; padding: 0; }
   .table { min-width: 0; }
   .label-sheet { page-break-inside: avoid; }
+  .label-grid { grid-template-columns: repeat(2, 1fr); }
 }

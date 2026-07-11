@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Batch, Center, LabResult, Patient, Referral, Sample, SessionUser } from './types';
-import { batchCode, patientCode, sampleBarcode } from './ids';
+import { batchCode, patientCode } from './ids';
 import { hashIdentifier, maskAbha, normalizeAadhaar, normalizeAbha } from './crypto';
 
 export const demoCenters: Center[] = [
@@ -192,9 +192,12 @@ export function createSample(input: any, user: SessionUser) {
   if (!patient) throw new Error('Patient not found');
   if (user.role === 'spoke' && patient.centerId !== user.centerId) throw new Error('Patient is outside your center.');
   const center = getCenter(user.centerId || patient.centerId);
+  const today = new Date().toISOString().slice(2, 10).replaceAll('-', '');
+  const prefix = `HPV-${center?.code || 'HPV'}-${today}-`;
+  const sequence = store.__hpvSamples!.filter((s) => s.sampleId.startsWith(prefix)).length + 1;
   const sample: Sample = {
     id: randomUUID(),
-    sampleId: sampleBarcode(center?.code),
+    sampleId: `${prefix}${String(sequence).padStart(4, '0')}`,
     patientId: patient.id,
     patientName: patient.fullName,
     aadhaarLast4: patient.aadhaarLast4,
@@ -209,9 +212,16 @@ export function createSample(input: any, user: SessionUser) {
   return sample;
 }
 
-export function listSamples(user: SessionUser, options: { id?: string; labPending?: boolean } = {}) {
+export function listSamples(user: SessionUser, options: { id?: string; ids?: string[]; labPending?: boolean; status?: string; q?: string; today?: boolean } = {}) {
   let samples = visibleSamples(user);
+  if (options.ids?.length) samples = samples.filter((s) => options.ids!.includes(s.id));
   if (options.id) samples = samples.filter((s) => s.id === options.id || s.sampleId === options.id);
+  if (options.q) {
+    const q = options.q.toLowerCase();
+    samples = samples.filter((s) => s.sampleId.toLowerCase().includes(q) || s.patientName?.toLowerCase().includes(q));
+  }
+  if (options.status) samples = samples.filter((s) => s.status === options.status);
+  if (options.today) samples = samples.filter((s) => s.collectionDate.slice(0, 10) === new Date().toISOString().slice(0, 10));
   if (options.labPending) {
     samples = samples.filter(
       (s) => (s.status === 'RECEIVED_AT_HUB' || s.status === 'IN_PROCESS') && !store.__hpvResults!.some((r) => r.sampleId === s.id)

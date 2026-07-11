@@ -15,15 +15,23 @@ export default function SamplesPage() {
   const [patientId, setPatientId] = useState('');
   const [collectionMode, setCollectionMode] = useState('PROVIDER_COLLECTED');
   const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('');
+  const [todayOnly, setTodayOnly] = useState(true);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [message, setMessage] = useState<any>(null);
 
   async function load() {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (status) params.set('status', status);
+    if (todayOnly) params.set('today', 'true');
     const [patientRes, sampleRes] = await Promise.all([
       fetch(`/api/patients?q=${encodeURIComponent(query)}`).then((r) => r.json()),
-      fetch('/api/samples').then((r) => r.json())
+      fetch(`/api/samples?${params.toString()}`).then((r) => r.json())
     ]);
     setPatients(patientRes.patients || []);
     setSamples(sampleRes.samples || []);
+    setSelectedLabels([]);
   }
 
   useEffect(() => { load(); }, []);
@@ -41,6 +49,12 @@ export default function SamplesPage() {
     setPatientId('');
     await load();
   }
+
+  function toggleLabel(id: string) {
+    setSelectedLabels((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  const labelHref = selectedLabels.length ? `/samples/labels?ids=${selectedLabels.join(',')}` : '/samples/labels';
 
   return (
     <>
@@ -106,13 +120,29 @@ export default function SamplesPage() {
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>
-        <h2>Samples</h2>
+        <div className="actions" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+          <h2 style={{ margin: 0 }}>Samples</h2>
+          <div className="actions">
+            <select className="select" value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 190 }}>
+              <option value="">All statuses</option>
+              <option value="COLLECTED">Collected</option>
+              <option value="DISPATCHED">Dispatched</option>
+              <option value="RECEIVED_AT_HUB">Received at hub</option>
+              <option value="REPORTED">Reported</option>
+              <option value="REFERRED">Referred</option>
+            </select>
+            <label className="mini"><input type="checkbox" checked={todayOnly} onChange={(e) => setTodayOnly(e.target.checked)} /> Today</label>
+            <button className="btn secondary" onClick={load}>Apply</button>
+            <Link className="btn" href={labelHref}><Printer size={16} aria-hidden="true" />Print labels ({selectedLabels.length || 'today'})</Link>
+          </div>
+        </div>
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Sample</th><th>Patient</th><th>Center</th><th>Mode</th><th>Status</th><th>Label</th></tr></thead>
+            <thead><tr><th></th><th>Sample</th><th>Patient</th><th>Center</th><th>Mode</th><th>Status</th><th>Label</th></tr></thead>
             <tbody>
               {samples.map((s) => (
                 <tr key={s.id}>
+                  <td><input type="checkbox" checked={selectedLabels.includes(s.id)} onChange={() => toggleLabel(s.id)} /></td>
                   <td><strong>{s.sampleId}</strong></td>
                   <td>{s.patientName || s.patientId}</td>
                   <td>{s.centerName}</td>
@@ -121,7 +151,7 @@ export default function SamplesPage() {
                   <td><Link className="btn secondary" href={`/samples/${s.id}/label`}><Printer size={16} aria-hidden="true" />Print</Link></td>
                 </tr>
               ))}
-              {!samples.length && <tr><td colSpan={6} className="mini">No samples yet.</td></tr>}
+              {!samples.length && <tr><td colSpan={7} className="mini">No samples found.</td></tr>}
             </tbody>
           </table>
         </div>

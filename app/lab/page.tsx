@@ -24,13 +24,16 @@ export default function LabPage() {
   const [samples, setSamples] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [sampleId, setSampleId] = useState('');
+  const [q, setQ] = useState('');
   const [result, setResult] = useState('NEGATIVE');
   const [remarks, setRemarks] = useState('');
   const [message, setMessage] = useState<any>(null);
 
   async function load() {
+    const params = new URLSearchParams({ labPending: 'true' });
+    if (q) params.set('q', q);
     const [sampleRes, resultRes] = await Promise.all([
-      fetch('/api/samples?labPending=true').then((r) => r.json()),
+      fetch(`/api/samples?${params.toString()}`).then((r) => r.json()),
       fetch('/api/lab/results').then((r) => r.json())
     ]);
     setSamples(sampleRes.samples || []);
@@ -66,6 +69,24 @@ export default function LabPage() {
         <div className="card">
           <h2>Enter result</h2>
           <div className="form">
+            <div className="field">
+              <label>Scan / search barcode</label>
+              <div className="actions">
+                <input
+                  className="input"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      load();
+                    }
+                  }}
+                  placeholder="Sample barcode, patient, mobile"
+                />
+                <button className="btn secondary" onClick={load}>Find</button>
+              </div>
+            </div>
             <div className="field">
               <label>Sample</label>
               <select className="select" value={sampleId} onChange={(e) => setSampleId(e.target.value)}>

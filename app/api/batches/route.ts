@@ -91,11 +91,21 @@ export async function GET(request: Request) {
     const user = await requireUser();
     const url = new URL(request.url);
     const receivePending = url.searchParams.get('receivePending') === 'true';
+    const status = url.searchParams.get('status') || undefined;
+    const q = url.searchParams.get('q') || undefined;
     if (isDemoMode) return NextResponse.json({ batches: listBatches(user, { receivePending }) });
     const params: any[] = [];
     let where = 'WHERE TRUE';
     if (receivePending) {
       where += ` AND b.status = 'DISPATCHED'`;
+    }
+    if (status) {
+      params.push(status);
+      where += ` AND b.status = $${params.length}`;
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      where += ` AND (b.batch_id ILIKE $${params.length} OR sc.name ILIKE $${params.length})`;
     }
     if (user.role === 'spoke') {
       params.push(user.centerId);

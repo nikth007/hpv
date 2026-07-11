@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCcw } from 'lucide-react';
+import { Download, RefreshCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
@@ -17,10 +17,15 @@ export default function ReportsPage() {
   const [results, setResults] = useState<any[]>([]);
   const [referrals, setReferrals] = useState<any[]>([]);
   const [dashboard, setDashboard] = useState<any>(null);
+  const [q, setQ] = useState('');
+  const [resultFilter, setResultFilter] = useState('');
 
   async function load() {
+    const resultParams = new URLSearchParams();
+    if (q) resultParams.set('q', q);
+    if (resultFilter) resultParams.set('result', resultFilter);
     const [resultRes, referralRes, dashboardRes] = await Promise.all([
-      fetch('/api/lab/results').then((r) => r.json()),
+      fetch(`/api/lab/results?${resultParams.toString()}`).then((r) => r.json()),
       fetch('/api/referrals').then((r) => r.json()),
       fetch('/api/dashboard').then((r) => r.json())
     ]);
@@ -30,6 +35,19 @@ export default function ReportsPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  function exportCsv(name: string, rows: any[], fields: Array<[string, string]>) {
+    const csv = [
+      fields.map(([label]) => `"${label}"`).join(','),
+      ...rows.map((row) => fields.map(([, key]) => `"${String(row[key] ?? '').replaceAll('"', '""')}"`).join(','))
+    ].join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <>
@@ -47,7 +65,20 @@ export default function ReportsPage() {
 
       <div className="grid two" style={{ marginTop: 18 }}>
         <div className="card">
-          <h2>Lab results</h2>
+          <div className="actions" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+            <h2 style={{ margin: 0 }}>Lab results</h2>
+            <button className="btn secondary" onClick={() => exportCsv('hpv-lab-results.csv', results, [['Sample', 'sampleCode'], ['Patient', 'patientName'], ['Center', 'centerName'], ['Result', 'result'], ['Reported', 'reportedAt']])}>
+              <Download size={18} aria-hidden="true" />Export
+            </button>
+          </div>
+          <div className="actions" style={{ marginBottom: 12 }}>
+            <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Sample, patient, center" />
+            <select className="select" value={resultFilter} onChange={(e) => setResultFilter(e.target.value)} style={{ width: 230 }}>
+              <option value="">All results</option>
+              {Object.entries(resultLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+            <button className="btn secondary" onClick={load}>Apply</button>
+          </div>
           <div className="table-wrap">
             <table className="table">
               <thead><tr><th>Sample</th><th>Patient</th><th>Center</th><th>Result</th><th>Reported</th></tr></thead>
@@ -67,7 +98,12 @@ export default function ReportsPage() {
           </div>
         </div>
         <div className="card">
-          <h2>Referral queue</h2>
+          <div className="actions" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+            <h2 style={{ margin: 0 }}>Referral queue</h2>
+            <button className="btn secondary" onClick={() => exportCsv('hpv-referrals.csv', referrals, [['Patient', 'patientName'], ['Sample', 'sampleCode'], ['Status', 'followUpStatus'], ['Follow-up date', 'followUpDate']])}>
+              <Download size={18} aria-hidden="true" />Export
+            </button>
+          </div>
           <div className="table-wrap">
             <table className="table">
               <thead><tr><th>Patient</th><th>Sample</th><th>Status</th><th>Date</th></tr></thead>

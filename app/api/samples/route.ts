@@ -4,7 +4,15 @@ import { requireUser, roleCan } from '@/lib/auth';
 import { isDemoMode, query } from '@/lib/db';
 import { createSample, listSamples } from '@/lib/mock-store';
 import { sampleSchema } from '@/lib/validators';
-import { sampleBarcode } from '@/lib/ids';
+
+function dayCode() {
+  const d = new Date();
+  return `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function sequentialSampleId(centerCode = 'HPV', sequence: number) {
+  return `HPV-${centerCode}-${dayCode()}-${String(sequence).padStart(4, '0')}`;
+}
 
 function sampleSelect() {
   return `
@@ -42,12 +50,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Patient is outside your center' }, { status: 403 });
     }
 
-    const rows = await query<any>(
-      `INSERT INTO samples(sample_id, patient_id, center_id, collection_mode, collected_by)
-       VALUES($1,$2,$3,$4,$5)
-       RETURNING id`,
-      [sampleBarcode(user.centerCode), body.patientId, user.centerId, body.collectionMode, user.id]
+    const prefix = `HPV-${user.centerCode || 'HPV'}-${dayCode()}-`;
+    const countRows = await query<any>(
+      `SELECT count(*)::int as count FROM samples WHERE center_id = $1 AND sample_id LIKE $2`,
+      [user.centerId, `${prefix}%`]
     );
+    let sampleCode = '';
+    let rows: any[] = [];
+    for (let attempt = 1; attempt <= 25; attempt += 1) {
+      sampleCode = sequentialSampleId(user.centerCode, (countRows[0]?.count || 0) + attempt);
+      try {
+        rows = await query<any>(
+          `INSERT INTO samples(sample_id, patient_id, center_id, collection_mode, collected_by)
+           VALUES($1,$2,$3,$4,$5)
+           RETURNING id`,
+          [sampleCode, body.patientId, user.centerId, body.collectionMode, user.id]
+        );
+        break;
+      } catch (error: any) {
+        if (!String(error?.message || '').includes('duplicate key')) throw error;
+      }
+    }
+    if (!rows.length) throw new Error('Could not generate a unique sample barcode. Try again.');
 
     const sampleId = rows[0].id;
     const sampleRows = await query<any>(`${sampleSelect()} WHERE s.id = $1`, [sampleId]);
@@ -64,14 +88,33 @@ export async function GET(request: Request) {
     const user = await requireUser();
     const url = new URL(request.url);
     const id = url.searchParams.get('id') || undefined;
+    const ids = url.searchParams.get('ids')?.split(',').map((item) => item.trim()).filter(Boolean) || [];
     const labPending = url.searchParams.get('labPending') === 'true';
-    if (isDemoMode) return NextResponse.json({ samples: listSamples(user, { id, labPending }) });
+    const status = url.searchParams.get('status') || undefined;
+    const q = url.searchParams.get('q') || undefined;
+    const today = url.searchParams.get('today') === 'true';
+    if (isDemoMode) return NextResponse.json({ samples: listSamples(user, { id, ids, labPending, status, q, today }) });
 
     const params: any[] = [];
     let where = 'WHERE TRUE';
+    if (ids.length) {
+      params.push(ids);
+      where += ` AND s.id = ANY($${params.length}::uuid[])`;
+    }
     if (id) {
       params.push(id);
       where += ` AND (s.id::text = $${params.length} OR s.sample_id = $${params.length})`;
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      where += ` AND (s.sample_id ILIKE $${params.length} OR p.full_name ILIKE $${params.length} OR p.mobile ILIKE $${params.length})`;
+    }
+    if (status) {
+      params.push(status);
+      where += ` AND s.status = $${params.length}`;
+    }
+    if (today) {
+      where += ` AND date(s.collection_date) = current_date`;
     }
     if (labPending) {
       where += ` AND s.status IN ('RECEIVED_AT_HUB','IN_PROCESS')`;

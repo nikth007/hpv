@@ -15,6 +15,8 @@ export default function HubPage() {
   const [activeBatch, setActiveBatch] = useState<any>(null);
   const [missing, setMissing] = useState<string[]>([]);
   const [damaged, setDamaged] = useState<string[]>([]);
+  const [scanned, setScanned] = useState<string[]>([]);
+  const [scanText, setScanText] = useState('');
   const [message, setMessage] = useState<any>(null);
 
   async function load() {
@@ -35,10 +37,13 @@ export default function HubPage() {
   async function receive() {
     if (!activeBatch) return;
     setMessage(null);
+    const sampleIds = (activeBatch.samples || []).map((row: any) => row.id || row.sampleId || row.sample?.id).filter(Boolean);
+    const scanMissing = scanned.length ? sampleIds.filter((id: string) => !scanned.includes(id) && !damaged.includes(id)) : [];
+    const missingSampleIds = Array.from(new Set([...missing, ...scanMissing]));
     const res = await fetch(`/api/batches/${activeBatch.id}/receive`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ missingSampleIds: missing, damagedSampleIds: damaged })
+      body: JSON.stringify({ missingSampleIds, damagedSampleIds: damaged })
     });
     const data = await res.json();
     if (!res.ok) return setMessage({ type: 'error', text: data.error || 'Receive failed' });
@@ -46,7 +51,33 @@ export default function HubPage() {
     setActiveBatch(null);
     setMissing([]);
     setDamaged([]);
+    setScanned([]);
+    setScanText('');
     await load();
+  }
+
+  function openBatch(batch: any) {
+    setActiveBatch(batch);
+    setMissing([]);
+    setDamaged([]);
+    setScanned([]);
+    setScanText('');
+    setMessage(null);
+  }
+
+  function scanSample() {
+    const text = scanText.trim().toUpperCase();
+    if (!activeBatch || !text) return;
+    const found = (activeBatch.samples || []).find((row: any) => String(row.sampleId || row.sample?.sampleId || '').toUpperCase() === text);
+    if (!found) {
+      setMessage({ type: 'error', text: 'This barcode is not in the open batch.' });
+      return;
+    }
+    const id = found.id || found.sampleId || found.sample?.id;
+    setScanned((current) => current.includes(id) ? current : [...current, id]);
+    setMissing((current) => current.filter((item) => item !== id));
+    setScanText('');
+    setMessage({ type: 'success', text: `Scanned: ${found.sampleId || found.sample?.sampleId}` });
   }
 
   return (
@@ -77,7 +108,7 @@ export default function HubPage() {
                     <td>{batch.sourceCenterName}</td>
                     <td>{batch.sampleCount}</td>
                     <td><span className="badge warn">{statusLabel(batch.status)}</span></td>
-                    <td><button className="btn secondary" onClick={() => setActiveBatch(batch)}>Open</button></td>
+                    <td><button className="btn secondary" onClick={() => openBatch(batch)}>Open</button></td>
                   </tr>
                 ))}
                 {!batches.length && <tr><td colSpan={5} className="mini">No incoming batches pending receipt.</td></tr>}
@@ -95,9 +126,30 @@ export default function HubPage() {
                 <strong>{activeBatch.batchId}</strong><br />
                 {activeBatch.sourceCenterName} / {activeBatch.sampleCount} samples
               </div>
+              <div className="field">
+                <label>Scan / enter sample barcode</label>
+                <div className="actions">
+                  <input
+                    className="input"
+                    value={scanText}
+                    onChange={(e) => setScanText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        scanSample();
+                      }
+                    }}
+                    placeholder="HPV-STANLEY-260711-0001"
+                  />
+                  <button className="btn secondary" onClick={scanSample}>Mark scanned</button>
+                </div>
+                <span className="mini">
+                  Scanned {scanned.length} of {(activeBatch.samples || []).length}. If you scan samples, unscanned samples will be marked missing on confirm.
+                </span>
+              </div>
               <div className="table-wrap">
                 <table className="table">
-                  <thead><tr><th>Sample</th><th>Patient</th><th>Missing</th><th>Damaged</th></tr></thead>
+                  <thead><tr><th>Sample</th><th>Patient</th><th>Scanned</th><th>Missing</th><th>Damaged</th></tr></thead>
                   <tbody>
                     {(activeBatch.samples || []).map((row: any) => {
                       const id = row.id || row.sampleId || row.sample?.id;
@@ -105,6 +157,7 @@ export default function HubPage() {
                         <tr key={id}>
                           <td><strong>{row.sampleId || row.sample?.sampleId}</strong></td>
                           <td>{row.patientName || row.sample?.patientName || '-'}</td>
+                          <td><span className={`badge ${scanned.includes(id) ? 'ok' : 'gray'}`}>{scanned.includes(id) ? 'Yes' : '-'}</span></td>
                           <td><input type="checkbox" checked={missing.includes(id)} onChange={() => toggle(missing, setMissing, id)} /></td>
                           <td><input type="checkbox" checked={damaged.includes(id)} onChange={() => toggle(damaged, setDamaged, id)} /></td>
                         </tr>

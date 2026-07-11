@@ -71,15 +71,26 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await requireUser();
     if (isDemoMode) return NextResponse.json({ results: listResults(user) });
+    const url = new URL(request.url);
+    const q = url.searchParams.get('q') || undefined;
+    const resultFilter = url.searchParams.get('result') || undefined;
     const params: any[] = [];
-    let where = '';
+    let where = 'WHERE TRUE';
     if (user.role === 'spoke') {
       params.push(user.centerId);
-      where = `WHERE s.center_id = $${params.length}`;
+      where += ` AND s.center_id = $${params.length}`;
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      where += ` AND (s.sample_id ILIKE $${params.length} OR p.full_name ILIKE $${params.length} OR c.name ILIKE $${params.length})`;
+    }
+    if (resultFilter) {
+      params.push(resultFilter);
+      where += ` AND r.result = $${params.length}`;
     }
     const results = await query<any>(
       `SELECT r.id,
