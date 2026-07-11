@@ -211,7 +211,11 @@ export function createSample(input: any, user: SessionUser) {
 export function listSamples(user: SessionUser, options: { id?: string; labPending?: boolean } = {}) {
   let samples = visibleSamples(user);
   if (options.id) samples = samples.filter((s) => s.id === options.id || s.sampleId === options.id);
-  if (options.labPending) samples = samples.filter((s) => s.status === 'RECEIVED_AT_HUB' || s.status === 'IN_PROCESS');
+  if (options.labPending) {
+    samples = samples.filter(
+      (s) => (s.status === 'RECEIVED_AT_HUB' || s.status === 'IN_PROCESS') && !store.__hpvResults!.some((r) => r.sampleId === s.id)
+    );
+  }
   return samples.slice().reverse();
 }
 
@@ -241,8 +245,10 @@ export function createBatch(input: any, user: SessionUser) {
   return batch;
 }
 
-export function listBatches(user: SessionUser) {
-  return visibleBatches(user).slice().reverse().map((batch) => ({
+export function listBatches(user: SessionUser, options: { receivePending?: boolean } = {}) {
+  let batches = visibleBatches(user);
+  if (options.receivePending) batches = batches.filter((batch) => batch.status === 'DISPATCHED');
+  return batches.slice().reverse().map((batch) => ({
     ...batch,
     samples: store.__hpvBatchSamples!
       .filter((bs) => bs.batchId === batch.id)
@@ -253,6 +259,7 @@ export function listBatches(user: SessionUser) {
 export function receiveBatch(id: string, input: { missingSampleIds?: string[]; damagedSampleIds?: string[] } = {}) {
   const batch = store.__hpvBatches!.find((b) => b.id === id);
   if (!batch) throw new Error('Batch not found');
+  if (batch.status !== 'DISPATCHED') throw new Error('This batch has already been received.');
   const missing = new Set(input.missingSampleIds || []);
   const damaged = new Set(input.damagedSampleIds || []);
   const links = store.__hpvBatchSamples!.filter((bs) => bs.batchId === id);

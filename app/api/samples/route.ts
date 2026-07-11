@@ -75,6 +75,7 @@ export async function GET(request: Request) {
     }
     if (labPending) {
       where += ` AND s.status IN ('RECEIVED_AT_HUB','IN_PROCESS')`;
+      where += ` AND NOT EXISTS (SELECT 1 FROM lab_results lr WHERE lr.sample_id = s.id)`;
     }
     if (user.role === 'spoke') {
       params.push(user.centerId);

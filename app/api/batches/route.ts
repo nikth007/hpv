@@ -86,12 +86,17 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await requireUser();
-    if (!isDatabaseEnabled) return NextResponse.json({ batches: listBatches(user) });
+    const url = new URL(request.url);
+    const receivePending = url.searchParams.get('receivePending') === 'true';
+    if (!isDatabaseEnabled) return NextResponse.json({ batches: listBatches(user, { receivePending }) });
     const params: any[] = [];
     let where = 'WHERE TRUE';
+    if (receivePending) {
+      where += ` AND b.status = 'DISPATCHED'`;
+    }
     if (user.role === 'spoke') {
       params.push(user.centerId);
       where += ` AND b.source_center_id = $${params.length}`;

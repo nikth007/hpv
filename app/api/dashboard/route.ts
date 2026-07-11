@@ -17,9 +17,9 @@ export async function GET() {
         (SELECT count(*)::int FROM samples s WHERE ($1::uuid IS NULL OR s.center_id = $1) AND date(s.collection_date) = current_date) as "collectedToday",
         (SELECT count(*)::int FROM samples s WHERE ($1::uuid IS NULL OR s.center_id = $1) AND s.status = 'COLLECTED') as "pendingDispatch",
         (SELECT count(*)::int FROM samples s WHERE ($1::uuid IS NULL OR s.center_id = $1) AND s.status = 'DISPATCHED') as "inTransit",
-        (SELECT count(*)::int FROM samples s WHERE ($1::uuid IS NULL OR s.center_id = $1) AND s.status IN ('RECEIVED_AT_HUB','IN_PROCESS')) as "receivedAtHub",
-        (SELECT count(*)::int FROM samples s WHERE ($1::uuid IS NULL OR s.center_id = $1) AND s.status IN ('RECEIVED_AT_HUB','IN_PROCESS')) as "pendingLabResult",
-        (SELECT count(*)::int FROM samples s WHERE ($1::uuid IS NULL OR s.center_id = $1) AND s.status IN ('REPORTED','REFERRED')) as "reported",
+        (SELECT count(*)::int FROM samples s WHERE ($1::uuid IS NULL OR s.center_id = $1) AND s.status IN ('RECEIVED_AT_HUB','IN_PROCESS') AND NOT EXISTS (SELECT 1 FROM lab_results lr WHERE lr.sample_id = s.id)) as "receivedAtHub",
+        (SELECT count(*)::int FROM samples s WHERE ($1::uuid IS NULL OR s.center_id = $1) AND s.status IN ('RECEIVED_AT_HUB','IN_PROCESS') AND NOT EXISTS (SELECT 1 FROM lab_results lr WHERE lr.sample_id = s.id)) as "pendingLabResult",
+        (SELECT count(DISTINCT r.sample_id)::int FROM lab_results r JOIN samples s ON s.id = r.sample_id WHERE ($1::uuid IS NULL OR s.center_id = $1)) as "reported",
         (SELECT count(DISTINCT s.patient_id)::int FROM lab_results r JOIN samples s ON s.id = r.sample_id WHERE ($1::uuid IS NULL OR s.center_id = $1) AND r.result IN ('POSITIVE_HPV_16','POSITIVE_HPV_18','POSITIVE_OTHER_HR_HPV')) as "positivePatients",
         (SELECT count(*)::int FROM referrals r JOIN patients p ON p.id = r.patient_id WHERE ($1::uuid IS NULL OR p.center_id = $1) AND r.follow_up_status <> 'COMPLETED') as "referralPending"`,
       [centerScope]
@@ -49,9 +49,10 @@ export async function GET() {
               c.name as "centerName",
               count(s.id)::int as collected,
               count(s.id) FILTER (WHERE s.status <> 'COLLECTED')::int as dispatched,
-              count(s.id) FILTER (WHERE s.status IN ('REPORTED','REFERRED'))::int as reported
+              count(DISTINCT s.id) FILTER (WHERE r.id IS NOT NULL)::int as reported
        FROM centers c
        LEFT JOIN samples s ON s.center_id = c.id
+       LEFT JOIN lab_results r ON r.sample_id = s.id
        WHERE c.center_type = 'spoke' AND ($1::uuid IS NULL OR c.id = $1)
        GROUP BY c.id, c.name
        ORDER BY c.name`,

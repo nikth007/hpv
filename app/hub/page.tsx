@@ -19,7 +19,7 @@ export default function HubPage() {
 
   async function load() {
     const [batchRes, dashboardRes] = await Promise.all([
-      fetch('/api/batches').then((r) => r.json()),
+      fetch('/api/batches?receivePending=true').then((r) => r.json()),
       fetch('/api/dashboard').then((r) => r.json())
     ]);
     setBatches(batchRes.batches || []);
@@ -80,7 +80,7 @@ export default function HubPage() {
                     <td><button className="btn secondary" onClick={() => setActiveBatch(batch)}>Open</button></td>
                   </tr>
                 ))}
-                {!batches.length && <tr><td colSpan={5} className="mini">No batches dispatched yet.</td></tr>}
+                {!batches.length && <tr><td colSpan={5} className="mini">No incoming batches pending receipt.</td></tr>}
               </tbody>
             </table>
           </div>
