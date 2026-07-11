@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auditLog } from '@/lib/audit';
 import { requireUser, roleCan } from '@/lib/auth';
 import { hashIdentifier, maskAbha, normalizeAadhaar, normalizeAbha } from '@/lib/crypto';
-import { isDatabaseEnabled, query } from '@/lib/db';
+import { isDemoMode, query } from '@/lib/db';
 import { patientCode } from '@/lib/ids';
 import { createPatient } from '@/lib/mock-store';
 import { patientSchema } from '@/lib/validators';
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       const aadhaarHash = aadhaar ? hashIdentifier(aadhaar) : null;
       const abhaHash = abha ? hashIdentifier(abha) : null;
 
-      if (!isDatabaseEnabled) {
+      if (isDemoMode) {
         const result = createPatient(body, user);
         if ('duplicate' in result && result.duplicate) {
           summary.duplicates += 1;

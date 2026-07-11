@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auditLog, outboxEvent } from '@/lib/audit';
 import { requireUser, roleCan } from '@/lib/auth';
-import { isDatabaseEnabled, query } from '@/lib/db';
+import { isDemoMode, query } from '@/lib/db';
 import { createSample, listSamples } from '@/lib/mock-store';
 import { sampleSchema } from '@/lib/validators';
 import { sampleBarcode } from '@/lib/ids';
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const user = await requireUser();
     if (!roleCan(user, 'collect')) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
     const body = sampleSchema.parse(await request.json());
-    if (!isDatabaseEnabled) {
+    if (isDemoMode) {
       const sample = createSample(body, user);
       return NextResponse.json({ sample }, { status: 201 });
     }
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const id = url.searchParams.get('id') || undefined;
     const labPending = url.searchParams.get('labPending') === 'true';
-    if (!isDatabaseEnabled) return NextResponse.json({ samples: listSamples(user, { id, labPending }) });
+    if (isDemoMode) return NextResponse.json({ samples: listSamples(user, { id, labPending }) });
 
     const params: any[] = [];
     let where = 'WHERE TRUE';

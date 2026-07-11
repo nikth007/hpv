@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auditLog } from '@/lib/audit';
 import { requireUser } from '@/lib/auth';
-import { isDatabaseEnabled, query } from '@/lib/db';
+import { isDemoMode, query } from '@/lib/db';
 import { listReferrals, updateReferral } from '@/lib/mock-store';
 import { referralUpdateSchema } from '@/lib/validators';
 
@@ -29,7 +29,7 @@ function referralSelect() {
 export async function GET() {
   try {
     const user = await requireUser();
-    if (!isDatabaseEnabled) return NextResponse.json({ referrals: listReferrals(user) });
+    if (isDemoMode) return NextResponse.json({ referrals: listReferrals(user) });
 
     const params: any[] = [];
     let where = 'WHERE TRUE';
@@ -56,7 +56,7 @@ export async function PATCH(request: Request) {
     const user = await requireUser();
     if (!['admin', 'hub', 'spoke'].includes(user.role)) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
     const body = referralUpdateSchema.parse(await request.json());
-    if (!isDatabaseEnabled) return NextResponse.json({ referral: updateReferral(body.id, body) });
+    if (isDemoMode) return NextResponse.json({ referral: updateReferral(body.id, body) });
 
     const existing = await query<any>(
       `SELECT r.id, p.center_id FROM referrals r JOIN patients p ON p.id = r.patient_id WHERE r.id = $1 LIMIT 1`,

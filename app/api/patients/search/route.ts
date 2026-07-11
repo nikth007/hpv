@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auditLog } from '@/lib/audit';
 import { requireUser } from '@/lib/auth';
-import { isDatabaseEnabled, query } from '@/lib/db';
+import { isDemoMode, query } from '@/lib/db';
 import { searchPatients } from '@/lib/mock-store';
 import { hashIdentifier, normalizeAadhaar, normalizeAbha } from '@/lib/crypto';
 
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   try {
     const user = await requireUser();
     const body = await request.json();
-    if (!isDatabaseEnabled) {
+    if (isDemoMode) {
       const matches = searchPatients(body, user);
       await auditLog(user, 'PATIENT_SEARCH_DEMO', 'patient', null, { matchCount: matches.length });
       return NextResponse.json({ matches });

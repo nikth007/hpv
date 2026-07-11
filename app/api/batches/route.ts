@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auditLog, outboxEvent } from '@/lib/audit';
 import { requireUser, roleCan } from '@/lib/auth';
-import { isDatabaseEnabled, query } from '@/lib/db';
+import { isDemoMode, query } from '@/lib/db';
 import { createBatch, listBatches } from '@/lib/mock-store';
 import { batchSchema } from '@/lib/validators';
 import { batchCode } from '@/lib/ids';
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const user = await requireUser();
     if (!roleCan(user, 'batch')) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
     const body = batchSchema.parse(await request.json());
-    if (!isDatabaseEnabled) return NextResponse.json({ batch: createBatch(body, user) }, { status: 201 });
+    if (isDemoMode) return NextResponse.json({ batch: createBatch(body, user) }, { status: 201 });
 
     const hubRows = await query<any>(`SELECT id FROM centers WHERE center_type = 'hub' AND active = TRUE ORDER BY created_at LIMIT 1`);
     const hubId = hubRows[0]?.id;
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
     const user = await requireUser();
     const url = new URL(request.url);
     const receivePending = url.searchParams.get('receivePending') === 'true';
-    if (!isDatabaseEnabled) return NextResponse.json({ batches: listBatches(user, { receivePending }) });
+    if (isDemoMode) return NextResponse.json({ batches: listBatches(user, { receivePending }) });
     const params: any[] = [];
     let where = 'WHERE TRUE';
     if (receivePending) {

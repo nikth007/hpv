@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auditLog } from '@/lib/audit';
 import { requireUser, roleCan } from '@/lib/auth';
-import { isDatabaseEnabled, query } from '@/lib/db';
+import { isDemoMode, query } from '@/lib/db';
 import { createPatient, searchPatients } from '@/lib/mock-store';
 import { patientSchema } from '@/lib/validators';
 import { hashIdentifier, maskAbha, normalizeAadhaar, normalizeAbha } from '@/lib/crypto';
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (!roleCan(user, 'register')) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
     const body = patientSchema.parse(await request.json());
 
-    if (!isDatabaseEnabled) {
+    if (isDemoMode) {
       const result = createPatient(body, user);
       if ('duplicate' in result && result.duplicate) {
         await auditLog(user, 'PATIENT_CREATE_DEMO', 'patient', result.duplicate.id);
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
     const user = await requireUser();
     const url = new URL(request.url);
     const q = url.searchParams.get('q') || undefined;
-    if (!isDatabaseEnabled) return NextResponse.json({ patients: searchPatients({ q }, user) });
+    if (isDemoMode) return NextResponse.json({ patients: searchPatients({ q }, user) });
 
     const params: any[] = [];
     let where = 'WHERE TRUE';

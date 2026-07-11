@@ -15,7 +15,7 @@ function demoSecret(name: '__hpvDemoSessionSecret' | '__hpvDemoIdentifierPepper'
 }
 
 function isDemoMode() {
-  return process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || !process.env.DATABASE_URL;
+  return process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || (!process.env.VERCEL && !process.env.DATABASE_URL);
 }
 
 function requiredSecret(envName: 'SESSION_SECRET' | 'IDENTIFIER_PEPPER') {

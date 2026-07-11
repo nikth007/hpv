@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { query, isDatabaseEnabled } from './db';
+import { isDemoMode, query } from './db';
 import { getDemoUser } from './mock-store';
 import { signPayload, verifyPassword, verifySignedPayload } from './crypto';
 import type { Role, SessionUser } from './types';
@@ -7,7 +7,7 @@ import type { Role, SessionUser } from './types';
 const COOKIE_NAME = 'hpv_session';
 
 export async function login(username: string, password: string): Promise<SessionUser | null> {
-  if (!isDatabaseEnabled) {
+  if (isDemoMode) {
     const demo = getDemoUser(username);
     if (!demo || !verifyPassword(password, demo.passwordHash)) return null;
     const { passwordHash, ...user } = demo;

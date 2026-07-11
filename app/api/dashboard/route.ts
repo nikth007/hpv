@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
-import { isDatabaseEnabled, query } from '@/lib/db';
+import { isDemoMode, query } from '@/lib/db';
 import { dashboardFor } from '@/lib/mock-store';
 
 export async function GET() {
   try {
     const user = await requireUser();
-    if (!isDatabaseEnabled) return NextResponse.json(dashboardFor(user));
+    if (isDemoMode) return NextResponse.json(dashboardFor(user));
 
     const centerScope = user.role === 'spoke' ? user.centerId : null;
     const counts = await query<any>(

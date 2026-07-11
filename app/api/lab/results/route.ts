@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auditLog, outboxEvent } from '@/lib/audit';
 import { requireUser, roleCan } from '@/lib/auth';
-import { isDatabaseEnabled, query } from '@/lib/db';
+import { isDemoMode, query } from '@/lib/db';
 import { createResult, listResults } from '@/lib/mock-store';
 import { resultSchema } from '@/lib/validators';
 
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const user = await requireUser();
     if (!roleCan(user, 'result')) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
     const body = resultSchema.parse(await request.json());
-    if (!isDatabaseEnabled) return NextResponse.json({ result: createResult(body, user) }, { status: 201 });
+    if (isDemoMode) return NextResponse.json({ result: createResult(body, user) }, { status: 201 });
 
     const sampleRows = await query<any>(
       `SELECT s.id, s.patient_id, s.status, s.sample_id
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     const user = await requireUser();
-    if (!isDatabaseEnabled) return NextResponse.json({ results: listResults(user) });
+    if (isDemoMode) return NextResponse.json({ results: listResults(user) });
     const params: any[] = [];
     let where = '';
     if (user.role === 'spoke') {

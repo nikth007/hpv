@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auditLog, outboxEvent } from '@/lib/audit';
 import { requireUser, roleCan } from '@/lib/auth';
-import { isDatabaseEnabled, query } from '@/lib/db';
+import { isDemoMode, query } from '@/lib/db';
 import { receiveBatch } from '@/lib/mock-store';
 import { receiveBatchSchema } from '@/lib/validators';
 
@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!roleCan(user, 'receive')) return NextResponse.json({ error: 'Only hub users can receive batches' }, { status: 403 });
     const { id } = await params;
     const body = receiveBatchSchema.parse(await request.json().catch(() => ({})));
-    if (!isDatabaseEnabled) return NextResponse.json({ batch: receiveBatch(id, body) });
+    if (isDemoMode) return NextResponse.json({ batch: receiveBatch(id, body) });
 
     const batchRows = await query<any>(
       `SELECT id, status FROM dispatch_batches WHERE id = $1 LIMIT 1`,
