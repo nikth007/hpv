@@ -289,11 +289,15 @@ export default function RegisterPage() {
             </div>
             <div className="field">
               <label>Mobile number</label>
-              <input className="input" value={form.mobile || ''} onChange={(e) => set('mobile', e.target.value)} placeholder="10 digits" />
+              <input className="input" inputMode="numeric" maxLength={10} value={form.mobile || ''} onChange={(e) => set('mobile', e.target.value)} placeholder="10 digits" />
             </div>
             <div className="field">
               <label>Date of birth</label>
               <input className="input" type="date" value={form.dob || ''} onChange={(e) => set('dob', e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Name or patient ID</label>
+              <input className="input" value={form.q || ''} onChange={(e) => set('q', e.target.value)} placeholder="Name / patient code" />
             </div>
           </div>
           <div className="actions" style={{ marginTop: 14 }}>
@@ -308,7 +312,9 @@ export default function RegisterPage() {
               {matches.map((patient) => (
                 <div className="step" key={patient.id}>
                   <strong>{patient.fullName}</strong>
-                  <span>{patient.patientCode} / Aadhaar last 4: {patient.aadhaarLast4 || 'NA'} / ABHA: {patient.abhaNumber || 'NA'}</span>
+                  <span>
+                    {patient.patientCode} / Mobile: {patient.mobile || 'NA'} / Aadhaar last 4: {patient.aadhaarLast4 || 'NA'} / ABHA: {patient.abhaNumber || 'NA'}
+                  </span>
                   <div className="actions" style={{ marginTop: 10 }}>
                     <button type="button" className="btn" onClick={() => collectSample(patient.id)}>
                       <Printer size={18} aria-hidden="true" />

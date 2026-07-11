@@ -144,13 +144,14 @@ export function searchPatients(params: { q?: string; aadhaar?: string; abhaNumbe
   const abha = normalizeAbha(params.abhaNumber);
   const aadhaarHash = aadhaar ? hashIdentifier(aadhaar) : null;
   const abhaHash = abha ? hashIdentifier(abha) : null;
+  const mobile = params.mobile?.replace(/\D/g, '');
   const q = params.q?.toLowerCase().trim();
   const scope = user && user.role === 'spoke' && !aadhaarHash && !abhaHash ? visiblePatients(user) : store.__hpvPatients!;
   return scope
     .filter((p) => {
       if (aadhaarHash && p.aadhaarHash === aadhaarHash) return true;
       if (abhaHash && p.abhaHash === abhaHash) return true;
-      if (params.mobile && p.mobile === params.mobile && (!params.dob || p.dob === params.dob)) return true;
+      if (mobile && p.mobile?.replace(/\D/g, '') === mobile) return true;
       if (q && (p.fullName.toLowerCase().includes(q) || p.patientCode.toLowerCase().includes(q) || p.mobile?.includes(q))) return true;
       return false;
     })

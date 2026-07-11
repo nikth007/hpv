@@ -19,14 +19,16 @@ export async function POST(request: Request) {
     const abha = normalizeAbha(body.abhaNumber);
     const aadhaarHash = aadhaar ? hashIdentifier(aadhaar) : null;
     const abhaHash = abha ? hashIdentifier(abha) : null;
-    const q = body.q?.trim();
+    const mobile = String(body.mobile || '').replace(/\D/g, '') || null;
+    const q = body.q?.trim() || null;
     const lowerName = body.fullName?.trim().toLowerCase() || null;
 
-    const params: any[] = [aadhaarHash, abhaHash, body.mobile || null, lowerName, body.dob || null];
+    const params: any[] = [aadhaarHash, abhaHash, mobile, lowerName, body.dob || null];
     let where = `
       (($1::text IS NOT NULL AND pi.aadhaar_hash = $1)
        OR ($2::text IS NOT NULL AND pi.abha_hash = $2)
-       OR ($3::text IS NOT NULL AND $4::text IS NOT NULL AND p.mobile = $3 AND lower(p.full_name) = $4 AND ($5::date IS NULL OR p.dob = $5::date))
+       OR ($3::text IS NOT NULL AND regexp_replace(COALESCE(p.mobile, ''), '\\D', '', 'g') = $3)
+       OR ($4::text IS NOT NULL AND lower(p.full_name) = $4 AND ($5::date IS NULL OR p.dob = $5::date))
     `;
 
     if (q) {
@@ -64,7 +66,8 @@ export async function POST(request: Request) {
       matchCount: matches.length,
       aadhaarProvided: Boolean(aadhaar),
       abhaProvided: Boolean(abha),
-      mobileProvided: Boolean(body.mobile)
+      mobileProvided: Boolean(mobile),
+      textQueryProvided: Boolean(q)
     });
     return NextResponse.json({ matches });
   } catch (error: any) {
